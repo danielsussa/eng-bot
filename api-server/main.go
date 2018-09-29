@@ -1,13 +1,24 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
+	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
+	speech "cloud.google.com/go/speech/apiv1"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/option"
+	speechpb "google.golang.org/genproto/googleapis/cloud/speech/v1"
 )
 
 type story struct {
@@ -26,7 +37,26 @@ type script struct {
 	IsLast   bool   `json:"isLast"`
 }
 
+var client *speech.Client
+
 func main() {
+	var err error
+	// Creates a client.
+
+	cfg, err := google.JWTConfigFromJSON([]byte(os.Getenv("SPEECH_CREDENTIAL")), speech.DefaultAuthScopes()...)
+	if err != nil {
+		panic(err)
+	}
+
+	ts := cfg.TokenSource(context.Background())
+	opt := option.WithTokenSource(ts)
+
+	client, err = speech.NewClient(context.Background(), opt)
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+
+	////HTTP/////////
 	e := echo.New()
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
@@ -49,11 +79,44 @@ func main() {
 }
 
 func sendAudio(c echo.Context) error {
-	file, err := c.FormFile("blob")
+	file, err := c.FormFile("audio")
+
+	fmt.Println(file)
+	fmt.Println(c.Request().Body)
+
 	if err != nil {
 		return err
 	}
-	fmt.Println(file)
+
+	buf := bytes.NewBuffer(nil)
+	if _, err := io.Copy(buf, nil); err != nil {
+		return err
+	}
+
+	ctx := c.Request().Context()
+	resp, err := client.Recognize(ctx, &speechpb.RecognizeRequest{
+		Config: &speechpb.RecognitionConfig{
+			Encoding:        speechpb.RecognitionConfig_LINEAR16,
+			SampleRateHertz: 16000,
+			LanguageCode:    "en-US",
+		},
+		Audio: &speechpb.RecognitionAudio{
+			AudioSource: &speechpb.RecognitionAudio_Content{Content: buf.Bytes()},
+		},
+	})
+
+	if err != nil {
+		log.Fatalf("failed to recognize: %v", err)
+	}
+
+	// Prints the results.
+	spew.Dump("RES", *resp)
+	for _, result := range resp.Results {
+		for _, alt := range result.Alternatives {
+			fmt.Printf("\"%v\" (confidence=%3f)\n", alt.Transcript, alt.Confidence)
+		}
+	}
+
 	return c.String(200, "ok")
 }
 
@@ -85,6 +148,7 @@ func getStory(c echo.Context) error {
 				Text:     "Exacerbating this problem was the fact that I had spent the entire span of my thirties at one place — a prestigious men’s magazine. I thought I had stability and security and swagger.",
 				Src:      "http://192.168.0.7:1323/audio/text_you_1.mp3",
 				Speaker:  "speaker-you",
+				IsLast:   true,
 				Duration: 5,
 			},
 			// "2": script{

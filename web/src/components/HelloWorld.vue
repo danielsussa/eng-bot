@@ -95,7 +95,7 @@ export default {
         var self = this;
         setTimeout(() => {
           if (script.isLast) {
-            self.mediaRecorder.stop();
+            console.log('fim!')
             self.mediaRecorder.requestData();
 
             self.nextStep(idx + 1);
@@ -105,16 +105,14 @@ export default {
           }
         }, script.duration * 1000);
 
-        console.log(this.mediaRecorder)
         var chunks = [];
         this.mediaRecorder.ondataavailable = function(e) {
-          alert('opaa fim')
           chunks.push(e.data);
           const audioBlob = new Blob(chunks);
+          var formData = new FormData();
+          formData.append('audio', audioBlob);
 
-          
-
-          this.$http.post('http://192.168.0.7:1323/story/audio/send/123',{blob: audioBlob}).
+          self.$http.post('http://192.168.0.7:1323/story/audio/send/123',formData).
           then(function(data){
               console.log(data);
           });
