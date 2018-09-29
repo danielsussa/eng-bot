@@ -20,6 +20,11 @@ export default {
 @import url('https://fonts.googleapis.com/css?family=PT+Sans');
 @import url('https://fonts.googleapis.com/css?family=Noto+Serif+KR');
 
+body {
+  /* background-image: linear-gradient(to bottom, white, #9e8a8a); */
+  height: 1000px;
+}
+
 #app {
   font-family: 'Noto Serif KR', sans-serif;
   -webkit-font-smoothing: antialiased;
