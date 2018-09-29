@@ -79,19 +79,18 @@ func main() {
 }
 
 func sendAudio(c echo.Context) error {
-	file, err := c.FormFile("audio")
-
-	fmt.Println(file)
-	fmt.Println(c.Request().Body)
+	file, _, err := c.Request().FormFile("audio")
 
 	if err != nil {
 		return err
 	}
 
 	buf := bytes.NewBuffer(nil)
-	if _, err := io.Copy(buf, nil); err != nil {
+	if _, err := io.Copy(buf, file); err != nil {
 		return err
 	}
+
+	spew.Dump(buf.Len())
 
 	ctx := c.Request().Context()
 	resp, err := client.Recognize(ctx, &speechpb.RecognizeRequest{
