@@ -14,13 +14,16 @@
         </label>
     </div> -->
 
-    <div v-for="script in story.scripts" :key="script.id">
-        <p v-bind:class="[script.speaker, script.status]">{{script.text}}</p>
+    <div class="script-container">
+      <div v-for="script in story.scripts" :key="script.id">
+          <p v-bind:class="[script.speaker, script.status]">{{script.text}}</p>
 
-        <audio controls :id="'speaker_'+script.id" hidden>
-          <source :src="script.src" type="audio/mpeg">
-        </audio>
+          <audio controls :id="'speaker_'+script.id" hidden>
+            <source :src="script.src" type="audio/mpeg">
+          </audio>
+      </div>
     </div>
+
 
   </div>
 </template>
@@ -118,34 +121,49 @@ export default {
       recordAudio: function(idx){
         const script = this.story.scripts[idx];
 
-        this.mediaRecorder.start();
-        alert(this.mediaRecorder.state)
+        if (this.mediaRecorder.state === 'paused') {
+          this.mediaRecorder.resume();
+        } else {
+          this.mediaRecorder.start();
+        }
+        
 
         var self = this;
         setTimeout(() => {
           if (script.isLast) {
-            self.mediaRecorder.stop();
+            //self.mediaRecorder.stop();
+            self.mediaRecorder.requestData();
+            self.nextStep(idx + 1);
           }else{
             self.mediaRecorder.pause();
+            self.nextStep(idx + 1);
           }
         }, script.duration * 1000);
 
+
         var chunks = [];
         this.mediaRecorder.ondataavailable = function(e) {
-          console.log(e);
           chunks.push(e.data);
+          const audioBlob = new Blob(chunks);
+          const audioUrl = URL.createObjectURL(audioBlob);
+          alert(audioUrl)
+                        const audio = new Audio(audioUrl);
+              const play = () => {
+                audio.play();
+              };
+
         };
 
-        this.mediaRecorder.onstop = function(e) {
-          console.log("recorder stopped");
-          var blob = new Blob(chunks, { type: "audio/ogg; codecs=opus" });
-          self.nextStep(idx + 1)
-        };
+        // this.mediaRecorder.onstop = function(e) {
+        //   console.log("recorder stopped");
+        //   var blob = new Blob(chunks, { type: "audio/ogg; codecs=opus" });
+        //   self.nextStep(idx + 1)
+        // };
 
-        this.mediaRecorder.onpause = function(e) {
-          alert("recorder paused");
-          self.nextStep(idx + 1)
-        };
+        // this.mediaRecorder.onpause = function(e) {
+        //   alert("recorder paused");
+        //   self.nextStep(idx + 1)
+        // };
       },
       mergeDeep: function(target, source) {
           const output = Object.assign({}, target);
@@ -187,6 +205,10 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+
+.script-container {
+  /* -webkit-mask-image: -webkit-linear-gradient(rgba(0,0,0,0), rgba(0,0,0,1), rgba(0,0,0,1),rgba(0,0,0,1),rgba(0,0,0,1)); */
+}
 
 .finish {
   text-decoration-line:line-through;
