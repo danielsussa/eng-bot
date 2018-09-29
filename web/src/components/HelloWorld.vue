@@ -59,7 +59,6 @@ export default {
         const script = this.story.scripts[idx];
 
         if (script === undefined) {
-          console.log('finish')
             return;
         }
 
@@ -92,13 +91,13 @@ export default {
         } else {
           this.mediaRecorder.start();
         }
-        
 
         var self = this;
         setTimeout(() => {
           if (script.isLast) {
-            //self.mediaRecorder.stop();
+            self.mediaRecorder.stop();
             self.mediaRecorder.requestData();
+
             self.nextStep(idx + 1);
           }else{
             self.mediaRecorder.pause();
@@ -106,17 +105,19 @@ export default {
           }
         }, script.duration * 1000);
 
-
+        console.log(this.mediaRecorder)
         var chunks = [];
         this.mediaRecorder.ondataavailable = function(e) {
+          alert('opaa fim')
           chunks.push(e.data);
           const audioBlob = new Blob(chunks);
-          const audioUrl = URL.createObjectURL(audioBlob);
-          alert(audioUrl)
-                        const audio = new Audio(audioUrl);
-              const play = () => {
-                audio.play();
-              };
+
+          
+
+          this.$http.post('http://192.168.0.7:1323/story/audio/send/123',{blob: audioBlob}).
+          then(function(data){
+              console.log(data);
+          });
 
         };
 
@@ -160,11 +161,16 @@ export default {
 
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         // Get media
-        this.$http.get('http://localhost:1323/story/12').then(res => {
+        this.$http.get('http://192.168.0.7:1323/story/12').then(res => {
           this.story = res.data
           this.loading = false;
+        }).catch(function(err) {
+          alert(err.message);
         })
-        navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
+        navigator.mediaDevices.getUserMedia({audio: true, video: false}).then(stream => {
+          var options = {
+            mimeType : 'audio/webm'
+          }
           this.mediaRecorder = new MediaRecorder(stream);
         }).catch(function(err) {
             alert(err)
