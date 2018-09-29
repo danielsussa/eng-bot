@@ -2,8 +2,6 @@
   <div class="hello">
 
 
-    <pre class="code">{{story | json}}</pre>
-
     <h1>{{ story.name }}</h1>
     <h3>{{ story.description }}</h3>
     <h3 v-on:click="start">Let's Start?</h3>
@@ -17,7 +15,7 @@
     </div> -->
 
     <div v-for="script in story.scripts" :key="script.id">
-        <p v-bind:class="[script.speaker, script.status]">{{script.text}} {{script.status}}</p>
+        <p v-bind:class="[script.speaker, script.status]">{{script.text}}</p>
 
         <audio controls :id="'speaker_'+script.id" hidden>
           <source :src="script.src" type="audio/mpeg">
@@ -35,41 +33,41 @@ export default {
   },
   data() {
     return {
-      //mediaRecorder: MediaRecorder,
+      mediaRecorder: MediaRecorder,
       test: 'hello',
       story: {
         name: "Apresentation Intro",
         description: "You are talking with Laura, She's from New Zeland and want to met new people.",
-        scripts:[
-          {
+        scripts:{
+          "0":{
             "id": "1",
             "text":"It wasn’t just that I was 41, which, let’s face it, isn’t old. It was that I was 41 and bored. And a little tired. And, at times, cantankerous. Crotchety, you might say.",
             "src":"text_laura_1.mp3",
             "speaker":"speaker-laura"
           },
-          {
+          "1":{
             "id": "2",
             "text":"Exacerbating this problem was the fact that I had spent the entire span of my thirties at one place — a prestigious men’s magazine. I thought I had stability and security and swagger.",
             "result":"Hi, my name is Danielle, and you?",
             "src":"text_you_1.mp3",
             "speaker":"speaker-you",
-            "duration": 4000
+            "duration": 4
           },
-          {
+          "2":{
             "id": "3",
             "text":"What I didn’t realize is that I had slowly started draining energy from the place where I worked instead of injecting it with my own. I was getting soft. I was getting lazy.",
             "src":"text_laura_2.mp3",
             "speaker":"speaker-laura"
           },
-          {
+          "3":{
             "id": "4",
             "text":"A couple months into unemployment, I got a job at another prestigious men’s magazine. ",
             "src":"text_you_2.mp3",
             "speaker":"speaker-you",
-            "duration": 6000,
+            "duration": 6,
             "isLast": true,
           },
-        ]
+        }
       }
     };
   },
@@ -83,14 +81,12 @@ export default {
   },
   methods: {
       start: function (event) {
-        this.test = 'opa';
-        this.story = this.mergeDeep(this.story, {scripts: {"aa":"sdda"}});
         console.log(this.story.scripts[0].status)
-        //console.log(this.story.scripts[0]);
         this.playAudio(0)
       },
       nextStep: function(idx) {
-        this.story.scripts[idx-1].status = "finish";
+        this.story = this.mergeDeep(this.story, {scripts: {[idx-1]: {'status': 'finish'}}});
+
         const script = this.story.scripts[idx];
 
         if (script === undefined) {
@@ -122,39 +118,34 @@ export default {
       recordAudio: function(idx){
         const script = this.story.scripts[idx];
 
-         navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
-           var self = this;
+        this.mediaRecorder.start();
+        alert(this.mediaRecorder.state)
 
-            var mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.start();
-            console.log(mediaRecorder.state);
+        var self = this;
+        setTimeout(() => {
+          if (script.isLast) {
+            self.mediaRecorder.stop();
+          }else{
+            self.mediaRecorder.pause();
+          }
+        }, script.duration * 1000);
 
-            setTimeout(() => {
-              if (script.isLast) {
-                mediaRecorder.stop();
-              }else{
-                mediaRecorder.pause();
-              }
-            }, script.duration);
+        var chunks = [];
+        this.mediaRecorder.ondataavailable = function(e) {
+          console.log(e);
+          chunks.push(e.data);
+        };
 
-            var chunks = [];
-            mediaRecorder.ondataavailable = function(e) {
-              console.log(e);
-              chunks.push(e.data);
-            };
+        this.mediaRecorder.onstop = function(e) {
+          console.log("recorder stopped");
+          var blob = new Blob(chunks, { type: "audio/ogg; codecs=opus" });
+          self.nextStep(idx + 1)
+        };
 
-            mediaRecorder.onstop = function(e) {
-              console.log("recorder stopped");
-              var blob = new Blob(chunks, { type: "audio/ogg; codecs=opus" });
-            };
-
-            mediaRecorder.onpause = function(e) {
-              console.log("recorder paused");
-              self.nextStep(idx + 1)
-            };
-          }).catch(function(err) {
-            console.log("The following getUserMedia error occured: " + err);
-        });
+        this.mediaRecorder.onpause = function(e) {
+          alert("recorder paused");
+          self.nextStep(idx + 1)
+        };
       },
       mergeDeep: function(target, source) {
           const output = Object.assign({}, target);
@@ -180,32 +171,14 @@ export default {
   created: function() {
 
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      console.log("getUserMedia supported.");
-      // navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
-      //   var mediaRecorder = new MediaRecorder(stream);
-      //   mediaRecorder.start();
-      //   console.log(mediaRecorder.state);
-
-      //   setTimeout(() => {
-      //     mediaRecorder.stop();
-      //     console.log(mediaRecorder.state);
-      //   }, 3000);
-
-      //   var chunks = [];
-      //   mediaRecorder.ondataavailable = function(e) {
-      //     console.log(e);
-      //     chunks.push(e.data);
-      //   };
-
-      //   mediaRecorder.onstop = function(e) {
-      //     console.log("recorder stopped");
-      //     var blob = new Blob(chunks, { type: "audio/ogg; codecs=opus" });
-      //     console.log(blob);
-      //   };
-      // }).catch(function(err) {
-      //   console.log("The following getUserMedia error occured: " + err);
-      // });
+        navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
+          this.mediaRecorder = new MediaRecorder(stream);
+        }).catch(function(err) {
+            alert(err)
+            console.log("The following getUserMedia error occured: " + err);
+        });
     } else {
+      alert("getUserMedia not supported on your browser!")
       console.log("getUserMedia not supported on your browser!");
     }
   }
