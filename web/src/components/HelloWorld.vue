@@ -1,6 +1,5 @@
 <template>
-  <div class="hello">
-
+  <div class="hello" v-if="!loading">
 
     <h1>{{ story.name }}</h1>
     <h3>{{ story.description }}</h3>
@@ -38,40 +37,8 @@ export default {
     return {
       mediaRecorder: MediaRecorder,
       test: 'hello',
-      story: {
-        name: "Apresentation Intro",
-        description: "You are talking with Laura, She's from New Zeland and want to met new people.",
-        scripts:{
-          "0":{
-            "id": "1",
-            "text":"It wasn’t just that I was 41, which, let’s face it, isn’t old. It was that I was 41 and bored. And a little tired. And, at times, cantankerous. Crotchety, you might say.",
-            "src":"text_laura_1.mp3",
-            "speaker":"speaker-laura"
-          },
-          "1":{
-            "id": "2",
-            "text":"Exacerbating this problem was the fact that I had spent the entire span of my thirties at one place — a prestigious men’s magazine. I thought I had stability and security and swagger.",
-            "result":"Hi, my name is Danielle, and you?",
-            "src":"text_you_1.mp3",
-            "speaker":"speaker-you",
-            "duration": 4
-          },
-          "2":{
-            "id": "3",
-            "text":"What I didn’t realize is that I had slowly started draining energy from the place where I worked instead of injecting it with my own. I was getting soft. I was getting lazy.",
-            "src":"text_laura_2.mp3",
-            "speaker":"speaker-laura"
-          },
-          "3":{
-            "id": "4",
-            "text":"A couple months into unemployment, I got a job at another prestigious men’s magazine. ",
-            "src":"text_you_2.mp3",
-            "speaker":"speaker-you",
-            "duration": 6,
-            "isLast": true,
-          },
-        }
-      }
+      loading: true,
+      story: {}
     };
   },
   mounted() {
@@ -84,7 +51,6 @@ export default {
   },
   methods: {
       start: function (event) {
-        console.log(this.story.scripts[0].status)
         this.playAudio(0)
       },
       nextStep: function(idx) {
@@ -109,7 +75,7 @@ export default {
 
       },
       playAudio: function(idx){
-          const id = this.story.scripts[idx].id
+          const id = this.story.scripts[idx].id;
           var speaker = document.getElementById("speaker_" + id);
           speaker.play();
 
@@ -186,9 +152,18 @@ export default {
       }
 
   },
+  ready: function () {
+    console.log('opa')
+
+  },
   created: function() {
 
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        // Get media
+        this.$http.get('http://localhost:1323/story/12').then(res => {
+          this.story = res.data
+          this.loading = false;
+        })
         navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
           this.mediaRecorder = new MediaRecorder(stream);
         }).catch(function(err) {
