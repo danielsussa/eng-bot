@@ -1,9 +1,12 @@
 <template>
   <div class="hello" v-if="!loading">
+    
+    <div class="presentation-container">
+        <h1>{{ story.name }}</h1>
+        <h3>{{ story.description }}</h3>
+        <h3 v-on:click="start">Let's Start?</h3>
+    </div>
 
-    <h1>{{ story.name }}</h1>
-    <h3>{{ story.description }}</h3>
-    <h3 v-on:click="start">Let's Start?</h3>
 
     <!-- <div class="onoffswitch">
         <input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="myonoffswitch" checked>
@@ -14,7 +17,13 @@
     </div> -->
 
     <div class="script-container">
-      <div v-for="script in story.scripts" :key="script.id">
+      <div v-for="script in story.scripts" :key="script.id" class="text-container">
+
+          <span>
+            <i v-if="script.speaker !== 'speaker-you'" class="fas fa-volume-up text-icon"></i>
+            <i v-if="script.speaker === 'speaker-you'" class="fas fa-microphone text-icon"></i>
+          </span>
+
           <p v-bind:class="[script.speaker, script.status]">{{script.text}}</p>
 
           <audio controls :id="'speaker_'+script.id" hidden>
@@ -108,14 +117,18 @@ export default {
         var chunks = [];
         this.mediaRecorder.ondataavailable = function(e) {
           chunks.push(e.data);
-          const audioBlob = new Blob(chunks);
+          const audioBlob = new Blob(chunks, { type: "audio/ogg; codecs=opus" });
           var formData = new FormData();
           formData.append('audio', audioBlob);
 
-          self.$http.post('http://192.168.0.7:1323/story/audio/send/123',formData).
-          then(function(data){
-              console.log(data);
-          });
+          var r = confirm("Send to backend")
+          if (r == true) {       
+            self.$http.post('http://192.168.0.7:1323/story/audio/send/123',formData).
+            then(function(data){
+                console.log(data);
+            });
+          }
+
 
         };
 
@@ -167,9 +180,11 @@ export default {
         })
         navigator.mediaDevices.getUserMedia({audio: true, video: false}).then(stream => {
           var options = {
-            mimeType : 'audio/webm'
+            //mimeType : 'audio/ogg',
+            audioBitsPerSecond : 16000,
           }
-          this.mediaRecorder = new MediaRecorder(stream);
+          this.mediaRecorder = new MediaRecorder(stream, options);
+
         }).catch(function(err) {
             alert(err)
             console.log("The following getUserMedia error occured: " + err);
@@ -183,15 +198,42 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped>
+<style scoped lang="scss">
+
+.presentation-container {
+  //background-color: black;
+}
 
 .script-container {
   /* -webkit-mask-image: -webkit-linear-gradient(rgba(0,0,0,0), rgba(0,0,0,1), rgba(0,0,0,1),rgba(0,0,0,1),rgba(0,0,0,1)); */
 }
 
+.text-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  span {
+    .text-icon {
+      padding-top: 15px;
+      margin-right: 10px;
+      width: 20px;
+      height: 30px;
+      font-size: 13px;
+      border-radius: 20px;
+      color: #bfa2a2;
+      background-color: #efebd1;
+    }
+  }
+
+
+}
+
 .finish {
   text-decoration-line:line-through;
 }
+
+
 
 .current {
   border-left: 5px solid #c3c3c3;
@@ -203,13 +245,15 @@ export default {
   
 }
 .speaker-you {
-  background-color: #efead1;
+  background-color: #f1efe7;
+  color: #6d6a5c;
 }
 h1 {
   font-weight: 700;
   font-size: 32px;
   letter-spacing: -.01em;
   text-decoration-line: underline;
+  color:#636363;
   margin-bottom: 0px;
 }
 h3 {

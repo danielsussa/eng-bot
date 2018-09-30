@@ -1,17 +1,18 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
+	"os/exec"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
+	"acesso.io/acessorh/lib/uuid"
 
 	speech "cloud.google.com/go/speech/apiv1"
 	"github.com/labstack/echo"
@@ -79,28 +80,55 @@ func main() {
 }
 
 func sendAudio(c echo.Context) error {
-	file, _, err := c.Request().FormFile("audio")
+	// SAVE TO FILE
+	fileName := uuid.New().String()
+	file, err := c.FormFile("audio")
+	if err != nil {
+		return err
+	}
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dst, err := os.Create(fileName + ".mp3")
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	if _, err = io.Copy(dst, src); err != nil {
+		return err
+	}
+
+	defer os.Remove(fileName + ".mp3")
+
+	//CONVERT
+	_, err = exec.Command("sh", "-c", fmt.Sprintf("ffmpeg -i %s.mp3 -sample_rate 24000 -y %s.wav", fileName, fileName)).Output()
 
 	if err != nil {
 		return err
 	}
 
-	buf := bytes.NewBuffer(nil)
-	if _, err := io.Copy(buf, file); err != nil {
-		return err
-	}
+	defer os.Remove(fileName + ".wav")
 
-	spew.Dump(buf.Len())
+	// Reads the audio file into memory.
+	data, err := ioutil.ReadFile(fileName + ".wav")
+	if err != nil {
+		log.Fatalf("Failed to read file: %v", err)
+	}
 
 	ctx := c.Request().Context()
 	resp, err := client.Recognize(ctx, &speechpb.RecognizeRequest{
 		Config: &speechpb.RecognitionConfig{
-			Encoding:        speechpb.RecognitionConfig_LINEAR16,
-			SampleRateHertz: 16000,
-			LanguageCode:    "en-US",
+			Encoding:     speechpb.RecognitionConfig_LINEAR16,
+			LanguageCode: "en-US",
+			Model:        "phone_call",
+			UseEnhanced:  true,
 		},
 		Audio: &speechpb.RecognitionAudio{
-			AudioSource: &speechpb.RecognitionAudio_Content{Content: buf.Bytes()},
+			AudioSource: &speechpb.RecognitionAudio_Content{Content: data},
 		},
 	})
 
@@ -109,7 +137,6 @@ func sendAudio(c echo.Context) error {
 	}
 
 	// Prints the results.
-	spew.Dump("RES", *resp)
 	for _, result := range resp.Results {
 		for _, alt := range result.Alternatives {
 			fmt.Printf("\"%v\" (confidence=%3f)\n", alt.Transcript, alt.Confidence)
