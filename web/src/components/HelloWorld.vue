@@ -20,8 +20,8 @@
       <div v-for="script in story.scripts" :key="script.id" class="text-container">
 
           <span>
-            <i v-if="script.speaker !== 'speaker-you'" class="fas fa-volume-up text-icon"></i>
-            <i v-if="script.speaker === 'speaker-you'" class="fas fa-microphone text-icon"></i>
+            <i v-if="script.speaker !== 'speaker-you'" class="fas fa-volume-up text-icon" v-bind:class="{current: script.isCurrent}"></i>
+            <i v-if="script.speaker === 'speaker-you'" class="fas fa-microphone text-icon" v-bind:class="{current: script.isCurrent}"></i>
           </span>
 
           <p v-bind:class="[script.speaker, script.status]">{{script.text}}</p>
@@ -60,16 +60,22 @@ export default {
   },
   methods: {
       start: function (event) {
-        this.playAudio(0)
+        this.nextStep(0)
       },
       nextStep: function(idx) {
-        this.story = this.mergeDeep(this.story, {scripts: {[idx-1]: {'status': 'finish'}}});
-
         const script = this.story.scripts[idx];
+
+        if (idx !== 0) {
+          this.story = this.mergeDeep(this.story, {scripts: {[idx-1]: {status: 'finish', isCurrent: false}}});
+        }
 
         if (script === undefined) {
             return;
         }
+
+        this.story = this.mergeDeep(this.story, {scripts: {[idx]: {isCurrent: true}}});
+
+
 
         //open Mic
         if (script.speaker === "speaker-you") {
@@ -168,16 +174,21 @@ export default {
     console.log('opa')
 
   },
+  startMediaDevice() {
+
+  },
   created: function() {
+
+    this.$http.get('http://192.168.0.7:1323/story/12').then(res => {
+      this.story = res.data
+      this.loading = false;
+    }).catch(function(err) {
+      alert(err.message);
+    })
 
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         // Get media
-        this.$http.get('http://192.168.0.7:1323/story/12').then(res => {
-          this.story = res.data
-          this.loading = false;
-        }).catch(function(err) {
-          alert(err.message);
-        })
+
         navigator.mediaDevices.getUserMedia({audio: true, video: false}).then(stream => {
           var options = {
             //mimeType : 'audio/ogg',
@@ -223,20 +234,29 @@ export default {
       border-radius: 20px;
       color: #bfa2a2;
       background-color: #efebd1;
+      border-left: 3px solid #c3c3c3;
+
+      -webkit-transition: background-color 0.3s ease-out;
+      -moz-transition: background-color 0.3s ease-out;
+      -o-transition: background-color 0.3s ease-out;
+      transition: background-color 0.3s ease-out;
+
+      &.current {
+          -webkit-transition: background-color 0.3s ease-out;
+          -moz-transition: background-color 0.3s ease-out;
+          -o-transition: background-color 0.3s ease-out;
+          transition: background-color 0.3s ease-out;
+          background-color: #ffc9c9;
+      }
     }
   }
 
-
-}
-
-.finish {
-  text-decoration-line:line-through;
 }
 
 
 
 .current {
-  border-left: 5px solid #c3c3c3;
+  border-left: 3px solid #c3c3c3;
 }
 
 .speaker-laura {
@@ -279,6 +299,12 @@ li {
 }
 a {
   color: #42b983;
+}
+
+@media only screen and (max-width: 480px) {
+    p {
+      font-size: 16px;
+    }
 }
 
 .onoffswitch {
