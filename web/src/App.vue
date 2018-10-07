@@ -20,10 +20,12 @@ export default {
 <style>
 @import url('https://fonts.googleapis.com/css?family=PT+Sans');
 @import url('https://fonts.googleapis.com/css?family=Noto+Serif+KR');
+@import url('https://fonts.googleapis.com/css?family=Bai+Jamjuree');
 
 body {
   /* background-image: linear-gradient(to bottom, white, #9e8a8a); */
   height: 1000px;
+  margin: 0;
 }
 
 #app {
@@ -32,8 +34,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
-  margin-top: 60px;
-  max-width: 720px;
-  margin: auto;
+  
 }
 </style>

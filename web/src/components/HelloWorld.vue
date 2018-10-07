@@ -1,42 +1,94 @@
 <template>
-  <div class="hello" v-if="!loading">
-    
-    <div class="presentation-container">
-        <h1>{{ story.name }}</h1>
-        <h3>{{ story.description }}</h3>
-        <h3 v-on:click="start">Let's Start?</h3>
-    </div>
+  <div v-if="!loading">
 
 
-    <!-- <div class="onoffswitch">
-        <input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="myonoffswitch" checked>
-        <label class="onoffswitch-label" for="myonoffswitch">
-            <span class="onoffswitch-inner"></span>
-            <span class="onoffswitch-switch"></span>
-        </label>
-    </div> -->
 
-    <div class="script-container">
-      <div v-for="script in story.scripts" :key="script.id" class="text-container">
 
-          <span>
-            <i v-if="script.speaker !== 'speaker-you'" class="fas fa-volume-up text-icon" v-bind:class="{current: script.isCurrent}"></i>
-            <i v-if="script.speaker === 'speaker-you'" class="fas fa-microphone text-icon" v-bind:class="{current: script.isCurrent}"></i>
-          </span>
+    <div class="main-container">
+          
+      <div class="presentation-container">
+          <h1>{{ story.name }}</h1>
+          <h3>{{ story.description }}</h3>
+          <h3 v-on:click="start">Let's Start?</h3>
+      </div>
 
-          <p v-bind:class="[script.speaker, script.status]">{{script.text}}</p>
 
-          <audio controls :id="'speaker_'+script.id" hidden>
-            <source :src="script.src" type="audio/mpeg">
-          </audio>
+      <!-- <div class="onoffswitch">
+          <input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="myonoffswitch" checked>
+          <label class="onoffswitch-label" for="myonoffswitch">
+              <span class="onoffswitch-inner"></span>
+              <span class="onoffswitch-switch"></span>
+          </label>
+      </div> -->
+
+      <div class="script-container">
+        <div v-for="script in story.scripts" :key="script.id" >
+            <span class="text-container">
+              <span>
+                <i v-if="script.speaker !== 'speaker-you'" class="fas fa-volume-up text-icon" v-bind:class="{current: script.isCurrent}"></i>
+                <i v-if="script.speaker === 'speaker-you'" class="fas fa-microphone text-icon" v-bind:class="{current: script.isCurrent}"></i>
+              </span>
+
+              <p v-bind:class="[script.speaker, script.status]" class="text">
+                {{script.text}}<br>
+                <!-- <i v-for="(grade, index) in script.grade" :key="index" v-bind:class="{'fas fa-star': grade === 'full', 'fas fa-star-half-alt': grade === 'half','far fa-star': grade === 'none'}"></i> -->
+                </p>          
+            </span>
+
+
+
+            <div v-if="script.speaker === 'speaker-you'" class="info-container">
+              <span class="classification-container">
+                <i v-for="(grade, index) in script.grade" :key="index" v-bind:class="{'fas fa-star': grade === 'full', 'fas fa-star-half-alt': grade === 'half','far fa-star': grade === 'none'}"></i>
+              </span>
+              <span class="timer">0/{{script.duration}}s</span>
+            </div>
+
+            <audio controls :id="'speaker_'+script.id" hidden>
+              <source :src="script.src" type="audio/mpeg">
+            </audio>
+        </div>
       </div>
     </div>
 
+    <div class="board-container" v-bind:class="{ showBoard: showBoard }">
+        <div class="expand-container" v-on:click="showHideBoard"><i class="fas fa-sliders-h icon"></i></div>
+        <div class="options-container">
+
+          <div class="option-container" v-on:click="start">
+            <div class="icon-container"><i class="fas fa-microphone-alt icon-start"></i></div>
+            <div class="text-container"><p>start</p></div>
+          </div>
+
+          <div class="option-container disable">
+            <div class="icon-container"><i class="fas fa-play icon-replay"></i></div>
+            <div class="text-container"><p>review</p></div>
+          </div>
+
+          <div class="option-container disable">
+            <div class="icon-container"><i class="fas fa-star icon-proccess"></i></div>
+            <div class="text-container"><p>result</p></div>
+          </div>
+
+          <div class="option-container">
+            <div class="icon-container"><i class="fas fa-trophy icon-ranking"></i></div>
+            <div class="text-container"><p>ranking</p></div>
+          </div>
+
+
+        </div>
+    </div>
+ 
 
   </div>
+
+
+
 </template>
 
 <script>
+import moment from 'moment';
+
 export default {
   name: "HelloWorld",
   props: {
@@ -46,6 +98,7 @@ export default {
     return {
       mediaRecorder: MediaRecorder,
       test: 'hello',
+      showBoard: true,
       loading: true,
       story: {}
     };
@@ -58,8 +111,17 @@ export default {
     //   alert("The audio has ended");
     // };
   },
+  compute: {
+    convertDuration: function(){
+      return 'opa'
+    }
+  },
   methods: {
+      showHideBoard: function (event) {
+          this.showBoard = !this.showBoard
+      },
       start: function (event) {
+        this.showBoard = false;
         this.nextStep(0)
       },
       nextStep: function(idx) {
@@ -70,6 +132,7 @@ export default {
         }
 
         if (script === undefined) {
+            this.showBoard = true;
             return;
         }
 
@@ -124,6 +187,9 @@ export default {
         this.mediaRecorder.ondataavailable = function(e) {
           chunks.push(e.data);
           const audioBlob = new Blob(chunks, { type: "audio/ogg; codecs=opus" });
+          const audioUrl = URL.createObjectURL(audioBlob);
+
+
           var formData = new FormData();
           formData.append('audio', audioBlob);
 
@@ -177,6 +243,7 @@ export default {
   startMediaDevice() {
 
   },
+  
   created: function() {
 
     this.$http.get('http://192.168.0.7:1323/story/12').then(res => {
@@ -217,15 +284,30 @@ export default {
 
 .script-container {
   /* -webkit-mask-image: -webkit-linear-gradient(rgba(0,0,0,0), rgba(0,0,0,1), rgba(0,0,0,1),rgba(0,0,0,1),rgba(0,0,0,1)); */
+
+}
+
+.main-container {
+    margin-top: 60px;
+    max-width: 720px;
+    margin: auto;
 }
 
 .text-container {
+  margin: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
 
+  .text {
+    order: 1;
+  }
+
   span {
+    order: 1;
+    
     .text-icon {
+      
       padding-top: 15px;
       margin-right: 10px;
       width: 20px;
@@ -253,7 +335,113 @@ export default {
 
 }
 
+.info-container{
+  display: flex;
+  justify-content: space-between;
+  margin: -15px 5px 0 40%;
+  height: 15px;
+  
+  .timer {
+    
+    //font: 12px sans-serif;
+    font-size: 14px;
+    text-align: right;
+    font-weight: 700;
+  }
 
+  .classification-container {
+      font-size: 18px;
+      width: 120px;
+      color: #636363
+  }
+}
+
+.board-container {
+  position: fixed;
+  background-color: #bfbca3;
+  height: 100px;
+  width: 100%;
+
+  -webkit-transition: bottom 0.3s ease-out;
+  -moz-transition: bottom 0.3s ease-out;
+  -o-transition: bottom 0.3s ease-out;
+  transition: bottom 0.3s ease-out;
+  bottom: -85px;
+
+  &.showBoard {
+    bottom: 0px;
+  }
+
+  .expand-container {
+    background-color: #a5a791;
+    width: 100%;
+    height: 15px;
+    .icon {
+      color: #676767;
+      position: absolute;
+      margin-left: -7px;
+      top: 0px;
+      transform: scale(2,0.6)
+
+    }
+  }
+  .options-container {
+    font-family: 'Bai Jamjuree', sans-serif;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    .disable {
+        opacity: 0.4;
+    }
+    .option-container {
+      display:block;
+      width: 80px;
+      height: 100%;
+      .icon-container {
+        margin: 5px auto;
+        border: 7px #4e4d4d solid;
+        padding: auto;
+        border-radius: 50px;
+        width: 40px;
+        height: 40px;
+        
+        .icon-start {
+          margin-top: 4px;
+          font-size: 32px;
+          color: #5d5d5d;
+        }
+                
+        .icon-replay {
+          margin-top: 6px;
+          margin-left: 3px;
+          font-size: 28px;
+          color: #5d5d5d;
+        }
+                        
+        .icon-proccess {
+          margin-top: 6px;
+          font-size: 28px;
+          color: #5d5d5d;
+        }
+                                
+        .icon-ranking {
+          margin-top: 8px;
+          font-size: 26px;
+          color: #5d5d5d;
+        }
+      }
+      .text-container {
+        height: 10px;
+        font-weight: 700;
+        p {
+          font-size: 18px;
+        }
+      }
+
+    }
+  }
+}
 
 .current {
   border-left: 3px solid #c3c3c3;
@@ -302,7 +490,7 @@ a {
 }
 
 @media only screen and (max-width: 480px) {
-    p {
+    .text {
       font-size: 16px;
     }
 }

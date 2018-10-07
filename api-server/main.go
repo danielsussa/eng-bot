@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
+	"strings"
 	"time"
 
 	"acesso.io/acessorh/lib/uuid"
@@ -30,12 +33,13 @@ type story struct {
 }
 
 type script struct {
-	Text     string `json:"text"`
-	Id       string `json:"id"`
-	Src      string `json:"src"`
-	Speaker  string `json:"speaker"`
-	Duration int    `json:"duration"`
-	IsLast   bool   `json:"isLast"`
+	Text     string   `json:"text"`
+	Id       string   `json:"id"`
+	Grade    []string `json:"grade"`
+	Src      string   `json:"src"`
+	Speaker  string   `json:"speaker"`
+	Duration int      `json:"duration"`
+	IsLast   bool     `json:"isLast"`
 }
 
 var client *speech.Client
@@ -111,7 +115,7 @@ func sendAudio(c echo.Context) error {
 		return err
 	}
 
-	defer os.Remove(fileName + ".wav")
+	//defer os.Remove(fileName + ".wav")
 
 	// Reads the audio file into memory.
 	data, err := ioutil.ReadFile(fileName + ".wav")
@@ -122,10 +126,11 @@ func sendAudio(c echo.Context) error {
 	ctx := c.Request().Context()
 	resp, err := client.Recognize(ctx, &speechpb.RecognizeRequest{
 		Config: &speechpb.RecognitionConfig{
-			Encoding:     speechpb.RecognitionConfig_LINEAR16,
-			LanguageCode: "en-US",
-			Model:        "phone_call",
-			UseEnhanced:  true,
+			Encoding:        speechpb.RecognitionConfig_LINEAR16,
+			LanguageCode:    "en-US",
+			MaxAlternatives: 3,
+			Model:           "phone_call",
+			//UseEnhanced:  true,
 		},
 		Audio: &speechpb.RecognitionAudio{
 			AudioSource: &speechpb.RecognitionAudio_Content{Content: data},
@@ -164,9 +169,10 @@ func getStory(c echo.Context) error {
 		Description: "You are talking with Laura, She's from New Zeland and want to met new people.",
 		Scripts: map[string]script{
 			"0": script{
-				Id:      "0",
-				Text:    "It wasn’t just that I was 41, which, let’s face it, isn’t old. It was that I was 41 and bored. And a little tired. And, at times, cantankerous. Crotchety, you might say.",
-				Src:     "http://192.168.0.7:1323/audio/text_laura_1.mp3",
+				Id:   "0",
+				Text: "It wasn’t just that I was 41, which, let’s face it, isn’t old. It was that I was 41 and bored. And a little tired. And, at times, cantankerous. Crotchety, you might say.",
+				Src:  "http://192.168.0.7:1323/audio/text_laura_1.mp3",
+
 				Speaker: "speaker-laura",
 			},
 			"1": script{
@@ -174,8 +180,9 @@ func getStory(c echo.Context) error {
 				Text:     "Exacerbating this problem was the fact that I had spent the entire span of my thirties at one place — a prestigious men’s magazine. I thought I had stability and security and swagger.",
 				Src:      "http://192.168.0.7:1323/audio/text_you_1.mp3",
 				Speaker:  "speaker-you",
+				Grade:    []string{"full", "half", "none"},
 				IsLast:   true,
-				Duration: 5,
+				Duration: 8,
 			},
 			// "2": script{
 			// 	Id:      "2",
@@ -188,10 +195,166 @@ func getStory(c echo.Context) error {
 			// 	Text:     "A couple months into unemployment, I got a job at another prestigious men’s magazine.",
 			// 	Src:      "http://192.168.0.7:1323/audio/text_you_2.mp3",
 			// 	Speaker:  "speaker-you",
+			// 	Grade:    []string{"full", "none", "none", "none", "none"},
 			// 	IsLast:   true,
 			// 	Duration: 3,
 			// },
 		},
 	}
 	return c.JSON(http.StatusOK, s)
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const PAIR_ACTIVE = 1
+const PAIR_INACTIVE = 2
+
+// maximum elements in a filepath
+const FILEPATH_MAX = 64
+
+type Pair struct {
+	fst     byte
+	snd     byte
+	status  byte
+	__align byte
+}
+
+type Pairs []Pair
+
+func (pair *Pair) String() string {
+	return fmt.Sprintf("%c%c|%d ", pair.fst, pair.snd, pair.status)
+}
+
+func detectLength(tokens []string) int {
+	result := 0
+	for i := 0; i < len(tokens); i++ {
+		l := len(tokens[i]) - 1
+		if l > 0 {
+			result += l
+		}
+	}
+	return result
+}
+
+// This helper func is missing in Go 1.0 (String type)
+func splitWithRegexp(s string, re *regexp.Regexp) []string {
+	if len(re.String()) > 0 && len(s) == 0 {
+		return []string{""}
+	}
+	matches := re.FindAllStringIndex(s, -1)
+	strings := make([]string, 0, len(matches))
+	beg := 0
+	end := 0
+	for _, match := range matches {
+		end = match[0]
+		if match[1] != 0 {
+			strings = append(strings, s[beg:end])
+		}
+		beg = match[1]
+	}
+	if end != len(s) {
+		strings = append(strings, s[beg:])
+	}
+	return strings
+}
+
+func splitFilepath(s string) []string {
+	if len(s) == 0 {
+		return []string{}
+	}
+	strs := make([]string, 0, FILEPATH_MAX)
+	slc := s
+	ix := 0
+	for {
+		ix = strings.IndexRune(slc, '/')
+		if ix == -1 {
+			break
+		}
+		strs = append(strs, slc[0:ix])
+		slc = slc[ix+1:]
+	}
+	strs = append(strs, slc[ix+1:])
+	return strs
+}
+
+func NewPairsFromArray(tokens []string) Pairs {
+	dl := detectLength(tokens)
+	pairs := make(Pairs, dl)
+
+	k := 0
+	for i := 0; i < len(tokens); i++ {
+		t := tokens[i]
+		for j := 0; j < len(t)-1; j++ {
+			pairs[k].fst = t[j]
+			pairs[k].snd = t[j+1]
+			pairs[k].status = PAIR_ACTIVE
+			k++
+		}
+	}
+	return pairs
+}
+
+func NewPairsFromString(str string) Pairs {
+	return NewPairsFromArray([]string{str})
+}
+
+func NewPairsFromStringTokens(str string, re regexp.Regexp) Pairs {
+	ss := splitWithRegexp(str, &re)
+	return NewPairsFromArray(ss)
+}
+
+func NewPairsFromFilepath(str string) Pairs {
+	ss := splitFilepath(str)
+	return NewPairsFromArray(ss)
+}
+
+func (self Pairs) String() string {
+	buff := bytes.NewBufferString("")
+	for _, p := range self {
+		buff.WriteString(p.String())
+	}
+	return buff.String()
+}
+
+func (self Pairs) Reactivate() {
+	for _, p := range self {
+		p.status = PAIR_ACTIVE
+	}
+}
+
+func (a Pair) Equal(b Pair) bool {
+	return (a.fst == b.fst && a.snd == b.snd &&
+		(a.status&b.status&PAIR_ACTIVE) == PAIR_ACTIVE)
+}
+
+func (self Pairs) Match(other Pairs) float64 {
+	matches := 0
+	len_self := len(self)
+	len_other := len(other)
+	sum := len_self + len_other
+	if sum == 0 {
+		return 1.0
+	}
+	for i := 0; i < len_self; i++ {
+		for j := 0; j < len_other; j++ {
+			if self[i].Equal(other[j]) {
+				matches++
+				other[j].status = PAIR_INACTIVE
+				break
+			}
+		}
+	}
+	return float64(2*matches) / float64(sum)
+}
+
+func MatchStrings(stra, strb string) float64 {
+	a := NewPairsFromString(stra)
+	b := NewPairsFromString(strb)
+	return a.Match(b)
+}
+
+func MatchStringsTokens(stra, strb string, re *regexp.Regexp) float64 {
+	a := NewPairsFromStringTokens(stra, *re)
+	b := NewPairsFromStringTokens(strb, *re)
+	return a.Match(b)
 }
