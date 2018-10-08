@@ -26,10 +26,10 @@ import (
 )
 
 type story struct {
-	Id          string            `json:"id"`
-	Scripts     map[string]script `json:"scripts"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
+	Id          string             `json:"id"`
+	Scripts     map[string]*script `json:"scripts"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
 }
 
 type script struct {
@@ -38,7 +38,8 @@ type script struct {
 	Grade    []string `json:"grade"`
 	Src      string   `json:"src"`
 	Speaker  string   `json:"speaker"`
-	Duration int      `json:"duration"`
+	Duration float64  `json:"duration"`
+	Interval string   `json:"interval"`
 	IsLast   bool     `json:"isLast"`
 }
 
@@ -163,45 +164,57 @@ func getStory(c echo.Context) error {
 	// User ID from path `users/:id`
 	id := c.Param("id")
 
-	s := story{
+	story := story{
 		Id:          id,
 		Name:        "Apresentation Intro",
 		Description: "You are talking with Laura, She's from New Zeland and want to met new people.",
-		Scripts: map[string]script{
-			"0": script{
+		Scripts: map[string]*script{
+			"0": &script{
 				Id:   "0",
-				Text: "It wasn’t just that I was 41, which, let’s face it, isn’t old. It was that I was 41 and bored. And a little tired. And, at times, cantankerous. Crotchety, you might say.",
+				Text: "I want you to take this seriously! Phoebe is very very important to me, ok? And I wanna make sure that you are gonna take care of her.",
 				Src:  "http://192.168.0.7:1323/audio/text_laura_1.mp3",
 
 				Speaker: "speaker-laura",
 			},
-			"1": script{
-				Id:       "1",
-				Text:     "Exacerbating this problem was the fact that I had spent the entire span of my thirties at one place — a prestigious men’s magazine. I thought I had stability and security and swagger.",
-				Src:      "http://192.168.0.7:1323/audio/text_you_1.mp3",
-				Speaker:  "speaker-you",
-				Grade:    []string{"full", "half", "none"},
-				IsLast:   true,
+			"1": &script{
+				Id:      "1",
+				Text:    "Joe, I love Phoebe. She’s the single most important thing in my life. I’d die before I let anything happen to her.",
+				Src:     "http://192.168.0.7:1323/audio/text_244.mp3",
+				Speaker: "speaker-you",
+				Grade:   []string{"full", "half", "none"},
+				//IsLast:   true,
 				Duration: 8,
 			},
-			// "2": script{
-			// 	Id:      "2",
-			// 	Text:    "What I didn’t realize is that I had slowly started draining energy from the place where I worked instead of injecting it with my own. I was getting soft. I was getting lazy.",
-			// 	Src:     "http://192.168.0.7:1323/audio/text_laura_2.mp3",
-			// 	Speaker: "speaker-laura",
-			// },
-			// "3": script{
-			// 	Id:       "3",
-			// 	Text:     "A couple months into unemployment, I got a job at another prestigious men’s magazine.",
-			// 	Src:      "http://192.168.0.7:1323/audio/text_you_2.mp3",
-			// 	Speaker:  "speaker-you",
-			// 	Grade:    []string{"full", "none", "none", "none", "none"},
-			// 	IsLast:   true,
-			// 	Duration: 3,
-			// },
+			"2": &script{
+				Id:      "2",
+				Text:    "That’s what I wanted to hear! Because she’s family, ok, and now you’re gonna be family, and there is nothing more important in the whole world, than family.",
+				Src:     "http://192.168.0.7:1323/audio/text_laura_2.mp3",
+				Speaker: "speaker-laura",
+				//IsLast:  true,
+			},
+			"3": &script{
+				Id:       "3",
+				Text:     "It’s your favorite sister!",
+				Src:      "http://192.168.0.7:1323/audio/text_you_2.mp3",
+				Speaker:  "speaker-you",
+				Grade:    []string{"full", "none", "none", "none", "none"},
+				IsLast:   true,
+				Duration: 3,
+			},
 		},
 	}
-	return c.JSON(http.StatusOK, s)
+
+	init := make(map[string]float64)
+
+	for _, script := range story.Scripts {
+		startInterval := init[script.Speaker]
+		init[script.Speaker] += script.Duration
+		endInterval := init[script.Speaker]
+
+		script.Interval = fmt.Sprintf("#t=%3.2f,%3.2f", startInterval, endInterval)
+	}
+
+	return c.JSON(http.StatusOK, story)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
