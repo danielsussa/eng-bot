@@ -86,6 +86,7 @@
 
 <script>
 import moment from 'moment';
+import NoSleep from 'nosleep.js'
 
 export default {
   name: "HelloWorld",
@@ -141,6 +142,7 @@ export default {
         }
         
         this.currentMode = event;
+        this.noSleep.enable();
         this.nextStep(0)
       },
       nextStep: function(idx) {
@@ -156,6 +158,7 @@ export default {
             }
             this.showBoard = true;
             this.currentMode = null;
+            this.noSleep.disable();
             return;
         }
 
@@ -271,6 +274,8 @@ export default {
 
   },
   created: function() {
+    this.noSleep = new NoSleep();
+    
     this.$http.get('http://192.168.0.7:1323/story/12').then(res => {
       this.story = res.data
       this.loading = false;
