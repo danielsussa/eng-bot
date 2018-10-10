@@ -23,7 +23,7 @@
 
       <div class="script-container">
         <div v-for="script in story.scripts" :key="script.id" >
-            <span class="text-container">
+            <span class="text-container" :id="'label_' + script.id">
               <span class="label">
                 <i v-if="script.speaker !== 'speaker-you'" class="fas fa-volume-up text-icon" v-bind:class="{current: script.isCurrent}"></i>
                 <i v-if="script.speaker === 'speaker-you'" class="fas fa-microphone text-icon" v-bind:class="{current: script.isCurrent}"></i>
@@ -38,6 +38,7 @@
 
 
             <div v-if="script.speaker === 'speaker-you'" class="info-container">
+              <span></span>
               <span class="classification-container">
                 <i v-for="(grade, index) in script.grade" :key="index" v-bind:class="{'fas fa-star': grade === 'full', 'fas fa-star-half-alt': grade === 'half','far fa-star': grade === 'none'}"></i>
               </span>
@@ -87,6 +88,7 @@
 <script>
 import moment from 'moment';
 import NoSleep from 'nosleep.js'
+import $ from "jquery";
 
 export default {
   name: "HelloWorld",
@@ -163,6 +165,7 @@ export default {
         }
 
         this.story = this.mergeDeep(this.story, {scripts: {[idx]: {isCurrent: true}}});
+        
 
 
 
@@ -179,6 +182,7 @@ export default {
 
         //Play Sound
         if (script.speaker !== "speaker-you") {
+            $('html,body').animate({scrollTop: $('#label_' + idx).offset().top / 1.4},5000, 'swing');
             this.playAudio(idx, null);
         }
 
@@ -364,7 +368,8 @@ export default {
 .info-container{
   display: flex;
   justify-content: space-between;
-  margin: -15px 5px 0 40%;
+  margin: -15px 5px 0 0;
+  width: 100%;
   height: 15px;
   
   .timer {
@@ -376,6 +381,7 @@ export default {
   }
 
   .classification-container {
+      margin: 0px 0px 0 30px;
       font-size: 18px;
       width: 120px;
       color: #636363
