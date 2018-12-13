@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -84,41 +85,8 @@ func main() {
 	e.Logger.Fatal(e.Start(":1323"))
 }
 
-func sendAudio(c echo.Context) error {
-	// SAVE TO FILE
-	fileName := uuid.New().String()
-	file, err := c.FormFile("audio")
-	if err != nil {
-		return err
-	}
-	src, err := file.Open()
-	if err != nil {
-		return err
-	}
-	defer src.Close()
-
-	dst, err := os.Create(fileName + ".mp3")
-	if err != nil {
-		return err
-	}
-	defer dst.Close()
-
-	if _, err = io.Copy(dst, src); err != nil {
-		return err
-	}
-
-	defer os.Remove(fileName + ".mp3")
-
-	//CONVERT
-	_, err = exec.Command("sh", "-c", fmt.Sprintf("ffmpeg -i %s.mp3 -sample_rate 24000 -y %s.wav", fileName, fileName)).Output()
-
-	if err != nil {
-		return err
-	}
-
-	//defer os.Remove(fileName + ".wav")
-
-	// Reads the audio file into memory.
+func proccessAudio(c echo.Context) error {
+	//Reads the audio file into memory.
 	data, err := ioutil.ReadFile(fileName + ".wav")
 	if err != nil {
 		log.Fatalf("Failed to read file: %v", err)
@@ -148,8 +116,59 @@ func sendAudio(c echo.Context) error {
 			fmt.Printf("\"%v\" (confidence=%3f)\n", alt.Transcript, alt.Confidence)
 		}
 	}
+	return c.String(200, "ok")
+}
+
+func sendAudio(c echo.Context) error {
+	// SAVE TO FILE
+
+	fileName := uuid.New().String()
+	file, err := c.FormFile("audio")
+	if err != nil {
+		return err
+	}
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dst, err := os.Create(fileName + ".mp3")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(fileName + ".mp3")
+	defer dst.Close()
+
+	if _, err = io.Copy(dst, src); err != nil {
+		return err
+	}
+
+	//CONVERT
+	fmt.Println(fmt.Sprintf("ffmpeg -i %s.mp3 %s -sample_rate 24000 -y %s.wav", fileName, volumeNormalize(fileName), fileName))
+	_, err = exec.Command("sh", "-c", fmt.Sprintf("ffmpeg -i %s.mp3 %s -sample_rate 24000 -y %s.wav", fileName, volumeNormalize(fileName), fileName)).Output()
+
+	if err != nil {
+		return err
+	}
 
 	return c.String(200, "ok")
+}
+
+func volumeNormalize(file string) string {
+	out, err := exec.Command("sh", "-c", fmt.Sprintf("ffmpeg -i %s.mp3 -af 'volumedetect' -vn -sn -dn -f null /dev/null", file)).CombinedOutput()
+	if err != nil {
+		panic(err)
+	}
+	k := strings.Split(string(out), "max_volume: ")[1]
+	k = strings.Split(k, "dB")[0]
+	if strings.Contains(k, "-") {
+		k = strings.Replace(k, "-", "", -1)
+		return fmt.Sprintf("-filter:a 'volume=%sdB'", k)
+	}
+	i64, _ := strconv.ParseUint(k, 10, 0)
+	fmt.Println(k, i64)
+	return "-filter:a 'volume=0dB'"
 }
 
 func getAudio(c echo.Context) error {
@@ -179,7 +198,7 @@ func getStory(c echo.Context) error {
 			"1": &script{
 				Id:      "1",
 				Text:    "Joe, I love Phoebe. She’s the single most important thing in my life. I’d die before I let anything happen to her.",
-				Src:     "http://192.168.0.7:1323/audio/text_244.mp3",
+				Src:     "http://192.168.0.7:1323/audio/text_you_1.mp3",
 				Speaker: "speaker-you",
 				Grade:   []string{"full", "half", "none"},
 				//IsLast:   true,

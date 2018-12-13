@@ -175,7 +175,7 @@ export default {
               this.recordAudio(idx);
           }
           if (this.currentMode === 'review') {
-            this.playAudio(idx, this.audioUrl + '#');
+            this.playAudio(idx);
           }
             
         }
@@ -183,14 +183,12 @@ export default {
         //Play Sound
         if (script.speaker !== "speaker-you") {
             $('html,body').animate({scrollTop: $('#label_' + idx).offset().top / 1.4},5000, 'swing');
-            this.playAudio(idx, null);
+            this.playAudio(idx);
         }
 
       },
-      playAudio: function(idx, src){
-        if (src === null) {
-          src = this.story.scripts[idx].src;
-        }
+      playAudio: function(idx){
+        const src = this.story.scripts[idx].src;
         const audio = new Audio(src);
         audio.volume = 1;
         audio.play();
@@ -227,9 +225,18 @@ export default {
 
         this.mediaRecorder.ondataavailable = function(e) {
           chunks.push(e.data);
-          self.audioBlob = new Blob(chunks, { type: "audio/ogg; codecs=opus" });
-          self.audioUrl = URL.createObjectURL(self.audioBlob);
-          self.reviewEnabled = true;
+          const audioBlob = new Blob(chunks, { type: "audio/ogg; codecs=opus" });
+
+          // Save data on backend
+          var formData = new FormData();
+          formData.append('audio', audioBlob);
+
+          self.$http.post('http://192.168.0.7:1323/story/audio/send/123',formData).
+            then(function(data){
+              self.reviewEnabled = true;
+          });
+
+          
           self.mediaRecorder = new MediaRecorder(self.stream, self.options);
         };
       },
